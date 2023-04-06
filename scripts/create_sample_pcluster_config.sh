@@ -4,28 +4,30 @@
 # It needs to read outputs from your OOD stack you already deployed. So you need to have the AWS_PROFILE or access key environment variables set
 # The cluster will have two partitions defined, one for general workload, one for interactive desktop.
 # Please update your
-export STACK_NAME="openondemand-demo"
-export SSH_KEY='<your SSH_KEY name>'
+STACK_NAME="odd-demo-2"
+SSH_KEY='sbgrid-ood-demo'
 
 
-export REGION="us-east-1"
-export DOMAIN_1="rc"
-export DOMAIN_2="local"
+REGION="us-east-1"
+DOMAIN_1="sbgrid"
+DOMAIN_2="local"
 
-export OOD_STACK=$(aws cloudformation describe-stacks --stack-name $STACK_NAME --region $REGION )
+OOD_STACK=$(aws cloudformation describe-stacks --stack-name $STACK_NAME --region $REGION )
 
 
-export AD_SECRET_ARN=$(echo $OOD_STACK | jq -r '.Stacks[].Outputs[] | select(.OutputKey=="ADAdministratorSecretARN") | .OutputValue')
-export SUBNET=$(echo $OOD_STACK | jq -r '.Stacks[].Outputs[] | select(.OutputKey=="PrivateSubnet1") | .OutputValue')
-export HEAD_SG=$(echo $OOD_STACK | jq -r '.Stacks[].Outputs[] | select(.OutputKey=="HeadNodeSecurityGroup") | .OutputValue')
-export HEAD_POLICY=$(echo $OOD_STACK | jq -r '.Stacks[].Outputs[] | select(.OutputKey=="HeadNodeIAMPolicyArn") | .OutputValue')
-export COMPUTE_SG=$(echo $OOD_STACK | jq -r '.Stacks[].Outputs[] | select(.OutputKey=="ComputeNodeSecurityGroup") | .OutputValue')
-export COMPUTE_POLICY=$(echo $OOD_STACK | jq -r '.Stacks[].Outputs[] | select(.OutputKey=="ComputeNodeIAMPolicyArn") | .OutputValue')
-export BUCKET_NAME=$(echo $OOD_STACK | jq -r '.Stacks[].Outputs[] | select(.OutputKey=="ClusterConfigBucket") | .OutputValue')
-export LDAP_ENDPOINT=$(echo $OOD_STACK | jq -r '.Stacks[].Outputs[] | select(.OutputKey=="LDAPNLBEndPoint") | .OutputValue')
+AD_SECRET_ARN=$(echo "$OOD_STACK" | jq -r '.Stacks[].Outputs[] | select(.OutputKey=="ADAdministratorSecretARN") | .OutputValue')
+SUBNET=$(echo "$OOD_STACK" | jq -r '.Stacks[].Outputs[] | select(.OutputKey=="PrivateSubnet1") | .OutputValue')
+HEAD_SG=$(echo "$OOD_STACK" | jq -r '.Stacks[].Outputs[] | select(.OutputKey=="HeadNodeSecurityGroup") | .OutputValue')
+HEAD_POLICY=$(echo "$OOD_STACK" | jq -r '.Stacks[].Outputs[] | select(.OutputKey=="HeadNodeIAMPolicyArn") | .OutputValue')
+COMPUTE_SG=$(echo "$OOD_STACK" | jq -r '.Stacks[].Outputs[] | select(.OutputKey=="ComputeNodeSecurityGroup") | .OutputValue')
+COMPUTE_POLICY=$(echo "$OOD_STACK" | jq -r '.Stacks[].Outputs[] | select(.OutputKey=="ComputeNodeIAMPolicyArn") | .OutputValue')
+BUCKET_NAME=$(echo "$OOD_STACK" | jq -r '.Stacks[].Outputs[] | select(.OutputKey=="ClusterConfigBucket") | .OutputValue')
+LDAP_ENDPOINT=$(echo "$OOD_STACK" | jq -r '.Stacks[].Outputs[] | select(.OutputKey=="LDAPNLBEndPoint") | .OutputValue')
+EFS_SHARED_FS_ID=$(echo "$OOD_STACK" | jq -r '.Stacks[].Outputs[] | select(.OutputKey=="EFSMountId") | .OutputValue')
 
 
 cat << EOF > ../pcluster-config.yml
+---
 HeadNode:
   InstanceType: c5.large
   Ssh:
@@ -78,14 +80,14 @@ Scheduling:
             - $STACK_NAME
       Iam:
         AdditionalIamPolicies:
-          - Policy: >-
-              $COMPUTE_POLICY
+          - Policy: $COMPUTE_POLICY
+          - Policy: arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore
     - Name: desktop
       AllocationStrategy: lowest-price
       ComputeResources:
         - Name: desktop-cr
           Instances:
-            - InstanceType: c5n.2xlarge
+            - InstanceType: g4dn.xlarge
           MinCount: 0
           MaxCount: 10
       Networking:
@@ -106,9 +108,10 @@ Scheduling:
             - $STACK_NAME
       Iam:
         AdditionalIamPolicies:
-          - Policy: >-
-              $COMPUTE_POLICY
-  SlurmSettings: {}
+          - Policy: $COMPUTE_POLICY
+          - Policy: arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore
+  SlurmSettings:
+    QueueUpdateStrategy: DRAIN
 Region: $REGION
 Image:
   Os: alinux2
@@ -119,4 +122,32 @@ DirectoryService:
   DomainReadOnlyUser: cn=Admin,ou=Users,ou=$DOMAIN_1,dc=$DOMAIN_1,dc=$DOMAIN_2
   AdditionalSssdConfigs:
     override_homedir: /shared/home/%u
+SharedStorage:
+  - MountDir: /shared
+    Name: SharedUserHome
+    StorageType: Efs
+    EfsSettings:
+      FileSystemId: $EFS_SHARED_FS_ID
+  - MountDir: /fsx
+    Name: LustreClusterFilesystem
+    StorageType: FsxLustre
+    FsxLustreSettings:
+      StorageCapacity: integer
+      DeploymentType: string
+      ImportedFileChunkSize: integer
+      DataCompressionType: string
+      ExportPath: string
+      ImportPath: string
+      WeeklyMaintenanceStartTime: string
+      AutomaticBackupRetentionDays: integer
+      CopyTagsToBackups: boolean
+      DailyAutomaticBackupStartTime: string
+      PerUnitStorageThroughput: integer
+      BackupId: string
+      KmsKeyId: string
+      FileSystemId: string
+      AutoImportPolicy: string
+      DriveCacheType: string
+      StorageType: string
+      DeletionPolicy: string
 EOF

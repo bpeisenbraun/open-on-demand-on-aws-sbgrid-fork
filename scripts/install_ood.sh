@@ -1,11 +1,15 @@
+#!/bin/bash
 # Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 # SPDX-License-Identifier: MIT-0
 dnf module enable ruby:2.7 -y
 dnf module enable nodejs:12 -y
 
-yum install https://yum.osc.edu/ondemand/2.0/ondemand-release-web-2.0-1.noarch.rpm -y -q
+# Install Docker
+yum-config-manager --add-repo https://download.docker.com/linux/centos/docker-ce.repo
+yum install docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin -y -q
 
-yum install openssl ondemand-2.0.28 ondemand-dex krb5-workstation samba-common-tools amazon-efs-utils -y -q
+yum install https://yum.osc.edu/ondemand/2.0/ondemand-release-web-2.0-1.noarch.rpm -y -q
+yum install openssl lsof nmap-ncat novnc python3-websockify ondemand ondemand-dex ondemand-selinux krb5-workstation samba-common-tools amazon-efs-utils tcsh -y -q
 
 export AD_SECRET=$(aws secretsmanager --region $AWS_REGION get-secret-value --secret-id $AD_SECRET_ID --query SecretString --output text)
 export AD_PASSWORD=$(aws secretsmanager --region $AWS_REGION get-secret-value --secret-id $AD_PASSWORD --query SecretString --output text)
@@ -70,13 +74,13 @@ dex:
             bindDN: CN=Admin,OU=Users,OU=$DOMAIN_NAME,DC=$DOMAIN_NAME,DC=$TOP_LEVEL_DOMAIN
             bindPW: $AD_PASSWORD
             userSearch:
-              baseDN: dc=$DOMAIN_NAME,dc=$TOP_LEVEL_DOMAIN
-              filter: "(objectClass=user)"
-              username: name
-              idAttr: name
-              emailAttr: name
+              baseDN: ou=Users,ou=$DOMAIN_NAME,dc=$DOMAIN_NAME,dc=$TOP_LEVEL_DOMAIN
+              filter: "(objectClass=person)"
+              username: sAMAccountName
+              idAttr: DN
+              emailAttr: userPrincipalName
               nameAttr: name
-              preferredUsernameAttr: name
+              preferredUsernameAttr: sAMAccountName
 # turn on proxy for interactive desktop apps
 host_regex: '[^/]+'
 node_uri: '/node'
@@ -100,6 +104,9 @@ chown apache /var/log/add_user.log
 touch /etc/ood/add_user.sh
 touch /shared/userlistfile
 mkdir -p /shared/home
+
+# Symlink the programs tree location
+ln -s /shared/home/sbgrid/programs /programs
 
 # Script that we want to use when adding user
 cat << EOF >> /etc/ood/add_user.sh
@@ -256,8 +263,12 @@ echo "apache  ALL=(ALL) NOPASSWD: ALL" >> /etc/sudoers
 # Setup for interactive desktops with PCluster
 rm -rf /var/www/ood/apps/sys/bc_desktop/submit.yml.erb
 cat << EOF >> /var/www/ood/apps/sys/bc_desktop/submit.yml.erb
+---
 batch_connect:
   template: vnc
-  websockify_cmd: "/usr/local/bin/websockify"
+  websockify_cmd: "/usr/bin/websockify"
 EOF
+
+nmcli con mod "System eth0" ipv4.dns-search "ec2.internal,sbgrid-ood-demo.pcluster"
+
 reboot

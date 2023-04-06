@@ -20,8 +20,8 @@ chmod 400 /etc/munge/munge.key
 systemctl restart munge
 
 # Add entry for fstab so mounts on restart
-mkdir /shared
-echo "$(curl -s http://169.254.169.254/latest/meta-data/placement/availability-zone).${EFS_ID}.efs.$REGION.amazonaws.com:/ /shared efs _netdev,noresvport,tls,iam 0 0" >> /etc/fstab
+#mkdir /shared
+#echo "$(curl -s http://169.254.169.254/latest/meta-data/placement/availability-zone).${EFS_ID}.efs.$REGION.amazonaws.com:/ /shared efs _netdev,noresvport,tls,iam 0 0" >> /etc/fstab
 mount -a
 
 # Add spack-users group

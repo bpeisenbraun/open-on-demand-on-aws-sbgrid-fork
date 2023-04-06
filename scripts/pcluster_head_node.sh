@@ -3,7 +3,7 @@
 #!/bin/bash
 
 # Install packages for domain
-yum -y -q install jq mysql amazon-efs-utils
+yum -y -q install jq mysql amazon-efs-utils adcli
 REGION=$(curl http://169.254.169.254/latest/meta-data/placement/region)
 INSTANCE_ID=$(curl -s http://169.254.169.254/latest/meta-data/instance-id)
 
@@ -30,8 +30,6 @@ mount -a
 
 # Add spack-users group
 groupadd spack-users -g 4000
-
-/shared/copy_users.sh
 
 ## Remove slurm cluster name; will be repopulated when instance restarts
 rm -f /var/spool/slurm.state/clustername
@@ -116,7 +114,9 @@ systemctl restart munge
 # Add cluster to slurm accounting
 sacctmgr add cluster $STACK_NAME
 systemctl restart slurmctld
+systemctl enable slurmctld
 systemctl restart slurmdbd
+systemctl enable slurmdbd
 systemctl restart slurmctld # TODO: Investigate why this fixes clusters not registered issues
 
 aws s3 cp /etc/ood/config/clusters.d/$STACK_NAME.yml s3://$S3_CONFIG_BUCKET/clusters/$STACK_NAME.yml
