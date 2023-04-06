@@ -266,7 +266,7 @@ cat << EOF >> /var/www/ood/apps/sys/bc_desktop/submit.yml.erb
 ---
 batch_connect:
   template: vnc
-  websockify_cmd: "/usr/bin/websockify"
+  websockify_cmd: "/usr/local/bin/websockify"
 EOF
 
 nmcli con mod "System eth0" ipv4.dns-search "ec2.internal,sbgrid-ood-demo.pcluster"
