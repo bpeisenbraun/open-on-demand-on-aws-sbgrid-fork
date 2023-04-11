@@ -35,6 +35,11 @@ sed -i 's/fallback_homedir = \/home\/%u/fallback_homedir = \/shared\/home\/%u/' 
 sleep 1
 systemctl restart sssd
 
+# Add a browser
+amazon-linux-extras enable firefox
+yum -y clean metadata
+yum -y install firefox
+
 ## install remote desktop packages
 ## uncomment the following if you want to run interacctive remote desktop session in OOD
 ##
@@ -53,6 +58,7 @@ amazon-linux-extras install python3.8
 ln -sf /usr/bin/python3.8 /usr/bin/python3
 
 pip3 install --no-input websockify
+ln -sf /usr/local/bin/websockify /usr/bin/websockify
 pip3 install --no-input jupyter
 
 amazon-linux-extras install mate-desktop1.x -y
