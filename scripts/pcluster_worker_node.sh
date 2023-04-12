@@ -23,6 +23,7 @@ systemctl restart munge
 #mkdir /shared
 #echo "$(curl -s http://169.254.169.254/latest/meta-data/placement/availability-zone).${EFS_ID}.efs.$REGION.amazonaws.com:/ /shared efs _netdev,noresvport,tls,iam 0 0" >> /etc/fstab
 mount -a
+ln -s /shared/home/sbgrid/programs /programs
 
 # Add spack-users group
 groupadd spack-users -g 4000
