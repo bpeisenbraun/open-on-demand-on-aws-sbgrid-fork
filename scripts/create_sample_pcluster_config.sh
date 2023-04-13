@@ -24,6 +24,8 @@ COMPUTE_POLICY=$(echo "$OOD_STACK" | jq -r '.Stacks[].Outputs[] | select(.Output
 BUCKET_NAME=$(echo "$OOD_STACK" | jq -r '.Stacks[].Outputs[] | select(.OutputKey=="ClusterConfigBucket") | .OutputValue')
 LDAP_ENDPOINT=$(echo "$OOD_STACK" | jq -r '.Stacks[].Outputs[] | select(.OutputKey=="LDAPNLBEndPoint") | .OutputValue')
 EFS_SHARED_FS_ID=$(echo "$OOD_STACK" | jq -r '.Stacks[].Outputs[] | select(.OutputKey=="EFSMountId") | .OutputValue')
+#EFS_PROGRAMS_FS_ID=$()
+FSX_CLUSTER_FS_ID=$(aws fsx describe-file-systems | jq -r '.FileSystems[] | select(.Tags[] | select(.Value == "SBGridClusterFilesystem")) | .FileSystemId')
 
 
 cat << EOF > ../pcluster-config.yml
@@ -129,25 +131,8 @@ SharedStorage:
     EfsSettings:
       FileSystemId: $EFS_SHARED_FS_ID
   - MountDir: /fsx
-    Name: LustreClusterFilesystem
+    Name: SBGridClusterFilesystem
     StorageType: FsxLustre
     FsxLustreSettings:
-      StorageCapacity: integer
-      DeploymentType: string
-      ImportedFileChunkSize: integer
-      DataCompressionType: string
-      ExportPath: string
-      ImportPath: string
-      WeeklyMaintenanceStartTime: string
-      AutomaticBackupRetentionDays: integer
-      CopyTagsToBackups: boolean
-      DailyAutomaticBackupStartTime: string
-      PerUnitStorageThroughput: integer
-      BackupId: string
-      KmsKeyId: string
-      FileSystemId: string
-      AutoImportPolicy: string
-      DriveCacheType: string
-      StorageType: string
-      DeletionPolicy: string
+      FileSystemId: $FSX_CLUSTER_FS_ID
 EOF
