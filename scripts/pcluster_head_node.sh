@@ -42,26 +42,8 @@ sed -i 's/fallback_homedir = \/home\/%u/fallback_homedir = \/shared\/home\/%u/' 
 sleep 1
 systemctl restart sssd
 
-
 export SLURM_VERSION=$(. /etc/profile && sinfo --version | cut -d' ' -f 2)
 sed -i "s/ClusterName=.*$/ClusterName=$STACK_NAME/" /opt/slurm/etc/slurm.conf
-
-mkdir -p /etc/ood/config/clusters.d
-cat << EOF > /etc/ood/config/clusters.d/$STACK_NAME.yml
----
-v2:
-  metadata:
-    title: "$STACK_NAME"
-    hidden: false
-  login:
-    host: "$(hostname -s)"
-  job:
-    adapter: "slurm"
-    cluster: "$STACK_NAME"
-    bin: "/bin"
-    bin_overrides:
-      sbatch: "/etc/ood/config/bin_overrides.py"
-EOF
 
 cat << EOF > /opt/slurm/etc/slurmdbd.conf
 ArchiveEvents=yes
@@ -119,12 +101,22 @@ systemctl restart slurmdbd
 systemctl enable slurmdbd
 systemctl restart slurmctld # TODO: Investigate why this fixes clusters not registered issues
 
-aws s3 cp /etc/ood/config/clusters.d/$STACK_NAME.yml s3://$S3_CONFIG_BUCKET/clusters/$STACK_NAME.yml
-
-# Generate bc_desktop file for optional desktop interactive apps
-mkdir -p /etc/ood/config/apps/bc_desktop
-cat << EOF > /etc/ood/config/apps/bc_desktop/$STACK_NAME.yml
+# Build the OOD cluster config on the PCluster head node and then copy it
+# to S3 for use by OOD
+mkdir -p /tmp/ood-config/
+cat << EOF > /tmp/ood-config/$STACK_NAME.yml
 ---
-title: "$STACK_NAME Desktop"
-cluster: "$STACK_NAME"
+v2:
+  metadata:
+    title: "$STACK_NAME"
+    hidden: false
+  login:
+    host: "$(hostname -s)"
+  job:
+    adapter: "slurm"
+    cluster: "$STACK_NAME"
+    bin: "/bin"
+    bin_overrides:
+      sbatch: "/etc/ood/config/bin_overrides.py"
 EOF
+aws s3 cp /tmp/ood-config/$STACK_NAME.yml s3://$S3_CONFIG_BUCKET/clusters/$STACK_NAME.yml

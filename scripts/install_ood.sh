@@ -1,19 +1,21 @@
 #!/bin/bash
 # Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 # SPDX-License-Identifier: MIT-0
-dnf module enable ruby:2.7 -y
-dnf module enable nodejs:12 -y
+dnf module enable ruby:3.0 -y
+dnf module enable nodejs:14 -y
 
 # Install Docker
 yum-config-manager --add-repo https://download.docker.com/linux/centos/docker-ce.repo
 yum install docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin -y -q
 
-yum install https://yum.osc.edu/ondemand/2.0/ondemand-release-web-2.0-1.noarch.rpm -y -q
-yum install openssl lsof nmap-ncat novnc python3-websockify ondemand ondemand-dex ondemand-selinux krb5-workstation samba-common-tools amazon-efs-utils tcsh -y -q
+yum install -y -q https://yum.osc.edu/ondemand/3.0/ondemand-release-web-3.0-1.noarch.rpm
+yum install -y -q openssl lsof nmap-ncat novnc ondemand ondemand-dex ondemand-selinux krb5-workstation samba-common-tools amazon-efs-utils tcsh
 
-export AD_SECRET=$(aws secretsmanager --region $AWS_REGION get-secret-value --secret-id $AD_SECRET_ID --query SecretString --output text)
-export AD_PASSWORD=$(aws secretsmanager --region $AWS_REGION get-secret-value --secret-id $AD_PASSWORD --query SecretString --output text)
-export ALB_NAME=${!ALB_DNS_NAME,,} # Need to make it lower case as apache is case sensitive
+AD_SECRET=$(aws secretsmanager --region "$AWS_REGION" get-secret-value --secret-id "$AD_SECRET_ID" --query SecretString --output text)
+AD_PASSWORD=$(aws secretsmanager --region "$AWS_REGION" get-secret-value --secret-id "$AD_PASSWORD" --query SecretString --output text)
+ALB_NAME=${!ALB_DNS_NAME,,} # Need to make it lower case as apache is case sensitive
+
+export AD_SECRET AD_PASSWORD ALB_NAME
 
 cat << EOF >> /etc/sssd/sssd.conf
 [domain/$DOMAIN_NAME.$TOP_LEVEL_DOMAIN]
@@ -62,41 +64,72 @@ EOF
 cat << EOF >> /etc/ood/config/ood_portal.yml
 dex_uri: /dex
 dex:
-    ssl: true
-    connectors:
-        - type: ldap
-          id: ldap
-          name: LDAP
-          config:
-            host: $LDAP_NLB
-            insecureSkipVerify: false
-            insecureNoSSL: true
-            bindDN: CN=Admin,OU=Users,OU=$DOMAIN_NAME,DC=$DOMAIN_NAME,DC=$TOP_LEVEL_DOMAIN
-            bindPW: $AD_PASSWORD
-            userSearch:
-              baseDN: ou=Users,ou=$DOMAIN_NAME,dc=$DOMAIN_NAME,dc=$TOP_LEVEL_DOMAIN
-              filter: "(objectClass=person)"
-              username: sAMAccountName
-              idAttr: DN
-              emailAttr: userPrincipalName
-              nameAttr: name
-              preferredUsernameAttr: sAMAccountName
+  connectors:
+    - type: ldap
+      id: ldap
+      name: LDAP
+      config:
+        host: $LDAP_NLB
+        insecureSkipVerify: false
+        insecureNoSSL: true
+        bindDN: CN=Admin,OU=Users,OU=$DOMAIN_NAME,DC=$DOMAIN_NAME,DC=$TOP_LEVEL_DOMAIN
+        bindPW: $AD_PASSWORD
+        userSearch:
+          baseDN: ou=Users,ou=$DOMAIN_NAME,dc=$DOMAIN_NAME,dc=$TOP_LEVEL_DOMAIN
+          filter: "(objectClass=person)"
+          username: sAMAccountName
+          idAttr: DN
+          emailAttr: userPrincipalName
+          nameAttr: name
+          preferredUsernameAttr: sAMAccountName
+        groupSearch:
+          baseDN: ou=Users,ou=$DOMAIN_NAME,dc=$DOMAIN_NAME,dc=$TOP_LEVEL_DOMAIN
+          filter: "(objectClass=group)"
+          userMatchers:
+            - userAttr: DN
+              groupAttr: member
+          nameAttr: cn
 # turn on proxy for interactive desktop apps
 host_regex: '[^/]+'
 node_uri: '/node'
 rnode_uri: '/rnode'
 EOF
 
-# # Tells PUN to look for home directories in EFS
+# Tells PUN to look for home directories in EFS
 cat << EOF >> /etc/ood/config/nginx_stage.yml
 user_home_dir: '/shared/home/%{user}'
 EOF
-
 
 # Set up directories for clusters and interactive desktops
 mkdir -p /etc/ood/config/clusters.d
 mkdir -p /etc/ood/config/apps/bc_desktop
 
+# Setup for interactive desktops with PCluster -- path XXX HARDCODED
+cat << EOF >> /etc/ood/config/apps/bc_desktop/sbgrid-ood-demo.yml
+---
+title: "GPU Desktop"
+cluster: "sbgrid-ood-demo"
+attributes:
+  desktop: "mate"
+  bc_queue: "desktop"
+  bc_num_slots: 1
+EOF
+
+# Setup for interactive desktops with PCluster -- path XXX HARDCODED
+cat << EOF >> /etc/ood/clusters.d/sbgrid-ood-demo.yml
+  batch_connect:
+    basic:
+      script_wrapper: |
+        module purge
+        %s
+    vnc:
+      script_wrapper: |
+        module purge
+        export PATH="/opt/TurboVNC/bin:$PATH"
+        export WEBSOCKIFY_CMD="/usr/local/bin/websockify"
+        %s
+      websockify_cmd: "/usr/local/bin/websockify"
+EOF
 
 # Setup OOD add user; will add local user for AD user if doesn't exist
 touch /var/log/add_user.log
@@ -114,10 +147,11 @@ if  id "\$1" &> /dev/null; then
   echo "user \$1 found" >> /var/log/add_user.log
   if [ ! -d "/shared/home/\$1" ] ; then
     echo "user \$1 home folder doesn't exist, create one " >> /var/log/add_user.log
-  #  usermod -a -G spack-users \$1
     mkdir -p /shared/home/\$1 >> /var/log/add_user.log
+    mkdir -p /fsx/userdata/\$1 >> /var/log/add_user.log
+    ln -s /fsx/userdata/\$1 /shared/home/\$1/fsx
     chown \$1:"Domain Users" /shared/home/\$1 >> /var/log/add_user.log
-  #  echo "\$1 $(id -u $1)" >> /shared/userlistfile
+    chown \$1:"Domain Users" /fsx/userdata/\$1 >> /var/log/add_user.log
     sudo su \$1 -c 'ssh-keygen -t rsa -f ~/.ssh/id_rsa -q -P ""'
     sudo su \$1 -c 'cat ~/.ssh/id_rsa.pub > ~/.ssh/authorized_keys'
     chmod 600 /shared/home/\$1/.ssh/*
@@ -126,25 +160,9 @@ fi
 echo \$1
 EOF
 
-
 echo "user_map_cmd: '/etc/ood/add_user.sh'" >> /etc/ood/config/ood_portal.yml
 
-# Creates a script where we can re-create local users on PCluster nodes.
-# Since OOD uses local users, need those same local users with same UID on PCluster nodes
-#cat << EOF >> /shared/copy_users.sh
-#while read USERNAME USERID
-#do
-#    # -u to set UID to match what is set on the head node
-#    if [ \$(grep -c '^\$USERNAME:' /etc/passwd) -eq 0 ]; then
-#        useradd -M -u \$USERID \$USERNAME -d /shared/home/\$USERNAME
-#        usermod -a -G spack-users \$USERNAME
-#    fi
-#done < "/shared/userlistfile"
-#EOF
-
 chmod +x /etc/ood/add_user.sh
-#chmod +x /shared/copy_users.sh
-#chmod o+w /shared/userlistfile
 
 /opt/ood/ood-portal-generator/sbin/update_ood_portal
 systemctl enable httpd
@@ -258,17 +276,10 @@ EOF
 chmod +x /etc/ood/config/bin_overrides.py
 #Edit sudoers to allow apache to add users
 echo "apache  ALL=/sbin/adduser" >> /etc/sudoers
+#Edit sudoers to allow apache to add users -- blech XXX fix this 
 echo "apache  ALL=(ALL) NOPASSWD: ALL" >> /etc/sudoers
 
-# Setup for interactive desktops with PCluster
-rm -rf /var/www/ood/apps/sys/bc_desktop/submit.yml.erb
-cat << EOF >> /var/www/ood/apps/sys/bc_desktop/submit.yml.erb
----
-batch_connect:
-  template: vnc
-  websockify_cmd: "/usr/local/bin/websockify"
-EOF
-
+# Add the pcluster domain to the resolver domain search list
 nmcli con mod "System eth0" ipv4.dns-search "ec2.internal,sbgrid-ood-demo.pcluster"
 
 reboot
