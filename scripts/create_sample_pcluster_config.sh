@@ -24,7 +24,7 @@ COMPUTE_POLICY=$(echo "$OOD_STACK" | jq -r '.Stacks[].Outputs[] | select(.Output
 BUCKET_NAME=$(echo "$OOD_STACK" | jq -r '.Stacks[].Outputs[] | select(.OutputKey=="ClusterConfigBucket") | .OutputValue')
 LDAP_ENDPOINT=$(echo "$OOD_STACK" | jq -r '.Stacks[].Outputs[] | select(.OutputKey=="LDAPNLBEndPoint") | .OutputValue')
 EFS_SHARED_FS_ID=$(echo "$OOD_STACK" | jq -r '.Stacks[].Outputs[] | select(.OutputKey=="EFSMountId") | .OutputValue')
-#EFS_PROGRAMS_FS_ID=$()
+EFS_PROGRAMS_FS_ID=$(aws efs describe-file-systems | jq -r '.FileSystems[] | select(.Tags[] | select(.Value == "SBGridProgramsInstallation")) | .FileSystemId')
 FSX_CLUSTER_FS_ID=$(aws fsx describe-file-systems | jq -r '.FileSystems[] | select(.Tags[] | select(.Value == "SBGridClusterFilesystem")) | .FileSystemId')
 
 
@@ -130,6 +130,11 @@ SharedStorage:
     StorageType: Efs
     EfsSettings:
       FileSystemId: $EFS_SHARED_FS_ID
+  - MountDir: /programs
+    Name: SBGridProgramsInstallation
+    StorageType: Efs
+    EfsSettings:
+      FileSystemId: $EFS_PROGRAMS_FS_ID
   - MountDir: /fsx
     Name: SBGridClusterFilesystem
     StorageType: FsxLustre

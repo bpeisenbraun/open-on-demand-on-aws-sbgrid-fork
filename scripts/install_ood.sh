@@ -138,9 +138,6 @@ touch /etc/ood/add_user.sh
 touch /shared/userlistfile
 mkdir -p /shared/home
 
-# Symlink the programs tree location
-ln -s /shared/home/sbgrid/programs /programs
-
 # Script that we want to use when adding user
 cat << EOF >> /etc/ood/add_user.sh
 if  id "\$1" &> /dev/null; then
