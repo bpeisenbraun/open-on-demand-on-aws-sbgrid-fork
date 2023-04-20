@@ -113,6 +113,7 @@ attributes:
   desktop: "mate"
   bc_queue: "desktop"
   bc_num_slots: 1
+  bc_email_on_started: 0
 EOF
 
 # Setup for interactive desktops with PCluster -- path XXX HARDCODED
