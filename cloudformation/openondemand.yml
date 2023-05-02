@@ -525,7 +525,6 @@ Resources:
       GroupId: !GetAtt PortalSecurityGroup.GroupId
       CidrIp: 10.0.0.0/16
 
-
   PortalHeadNodeLDAPKerberosTCPEgress:
     Type: AWS::EC2::SecurityGroupEgress
     Properties:
@@ -545,6 +544,26 @@ Resources:
       Description: Allows outbound to Head Nodes for SSH
       GroupId: !GetAtt PortalSecurityGroup.GroupId
       DestinationSecurityGroupId: !GetAtt HeadNodeSecurityGroup.GroupId
+
+  PortalHeadNodeFSXEgress1:
+    Type: AWS::EC2::SecurityGroupEgress
+    Properties:
+      IpProtocol: tcp
+      FromPort: 998
+      ToPort: 998
+      Description: Allows outbound FSx Lustre client traffic
+      GroupId: !GetAtt PortalSecurityGroup.GroupId
+      CidrIp: 10.0.0.0/16
+
+  PortalHeadNodeFSXEgress2:
+    Type: AWS::EC2::SecurityGroupEgress
+    Properties:
+      IpProtocol: tcp
+      FromPort: 1018
+      ToPort: 1023
+      Description: Allows outbound FSx Lustre client traffic
+      GroupId: !GetAtt PortalSecurityGroup.GroupId
+      CidrIp: 10.0.0.0/16
 
   PortalComputeNodeEgress:
     Type: AWS::EC2::SecurityGroupEgress
