@@ -100,6 +100,14 @@ cat << EOF >> /etc/ood/config/nginx_stage.yml
 user_home_dir: '/shared/home/%{user}'
 EOF
 
+# Configure shell/VNC timeouts?
+cat << EOF >> /etc/httpd/conf.d/proxytimeouts.conf
+TimeOut 900
+ProxyTimeout 900
+KeepAlive On
+KeepAliveTimeout 900
+EOF
+
 # Set up directories for clusters and interactive desktops
 mkdir -p /etc/ood/config/clusters.d
 mkdir -p /etc/ood/config/apps/bc_desktop
@@ -109,14 +117,46 @@ cat << EOF >> /etc/ood/config/apps/bc_desktop/sbgrid-ood-demo.yml
 ---
 title: "GPU Desktop"
 cluster: "sbgrid-ood-demo"
+#submit: "submit/sbgrid.yml.erb"
 attributes:
-  bc_account: null
-  bc_email_on_started: 0
   bc_num_hours:
+    help: "The maximum number of hours your desktop session will run"
+    min: 1
+    max: 168
     value: 4
-  bc_num_slots: 1
-  bc_queue: "desktop"
   desktop: "mate"
+  bc_queue: "desktop"
+  bc_account:
+    label: "Project Name"
+    help: "Optional - used for accounting purposes"
+  bc_num_slots: 1
+  bc_email_on_started: 0
+  bc_vnc_idle: 900
+  node_type:
+    label: "Desktop Configuration"
+    help: "Select the CPU and memory configuration for the desktop"
+    widget: select
+    options:
+      - [ "1 CPU, 4GB memory", "1:4G" ]
+      - [ "2 CPU, 8GB memory", "2:8G" ]
+      - [ "4 CPU, 16GB memory", "4:16G" ]
+
+form:
+  - bc_account
+  - bc_num_hours
+  - node_type
+  - node_cpu
+EOF
+
+cat << EOF >> /etc/ood/config/apps/bc_desktop/submit/sbgrid.yml.erb
+---
+script:
+  native:
+    - "-N"
+    - "<%= bc_num_slots.blank? ? 1 : bc_num_slots.to_i %>"
+    - "<%= '--cpus-per-task='+node_type.split(":")[0] %>"
+    - "<%= '--mem='+node_type.split(":")[1] %>"
+    - "<%= '--constraint='+node_cpu %>"
 EOF
 
 # Setup for interactive desktops with PCluster -- path XXX HARDCODED
