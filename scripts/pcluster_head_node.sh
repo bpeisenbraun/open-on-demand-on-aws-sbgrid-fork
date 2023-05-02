@@ -1,6 +1,6 @@
+#!/bin/bash
 # Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 # SPDX-License-Identifier: MIT-0
-#!/bin/bash
 
 # Install packages for domain
 yum -y -q install jq mysql amazon-efs-utils adcli
@@ -24,9 +24,9 @@ export RDS_ENDPOINT=$(echo $RDS_SECRET | jq -r ".host")
 export RDS_PORT=$(echo $RDS_SECRET | jq -r ".port")
 
 # Add entry for fstab so mounts on restart
-mkdir /shared
-echo "$(curl -s http://169.254.169.254/latest/meta-data/placement/availability-zone).${EFS_ID}.efs.$REGION.amazonaws.com:/ /shared efs _netdev,noresvport,tls,iam 0 0" >> /etc/fstab
-mount -a
+#mkdir /shared
+#echo "$(curl -s http://169.254.169.254/latest/meta-data/placement/availability-zone).${EFS_ID}.efs.$REGION.amazonaws.com:/ /shared efs _netdev,noresvport,tls,iam 0 0" >> /etc/fstab
+#mount -a
 
 # Add spack-users group
 groupadd spack-users -g 4000
@@ -120,3 +120,6 @@ v2:
       sbatch: "/etc/ood/config/bin_overrides.py"
 EOF
 aws s3 cp /tmp/ood-config/$STACK_NAME.yml s3://$S3_CONFIG_BUCKET/clusters/$STACK_NAME.yml
+
+### this is for lustre cache eviction -- not working yet
+#echo "5 * * * * /programs/local/bin/cache-eviction-wrapper.sh -mountpath /fsx -mountpoint /shared -minage 30 -minsize 2000 -bucket bucket" | crontab 

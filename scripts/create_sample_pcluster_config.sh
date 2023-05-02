@@ -84,6 +84,7 @@ Scheduling:
         AdditionalIamPolicies:
           - Policy: $COMPUTE_POLICY
           - Policy: arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore
+          - Policy: arn:aws:iam::aws:policy/AmazonS3ReadOnlyAccess
     - Name: desktop
       AllocationStrategy: lowest-price
       ComputeResources:
@@ -112,6 +113,7 @@ Scheduling:
         AdditionalIamPolicies:
           - Policy: $COMPUTE_POLICY
           - Policy: arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore
+          - Policy: arn:aws:iam::aws:policy/AmazonS3ReadOnlyAccess
   SlurmSettings:
     QueueUpdateStrategy: DRAIN
 Region: $REGION

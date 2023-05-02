@@ -110,10 +110,13 @@ cat << EOF >> /etc/ood/config/apps/bc_desktop/sbgrid-ood-demo.yml
 title: "GPU Desktop"
 cluster: "sbgrid-ood-demo"
 attributes:
-  desktop: "mate"
-  bc_queue: "desktop"
-  bc_num_slots: 1
+  bc_account: null
   bc_email_on_started: 0
+  bc_num_hours:
+    value: 4
+  bc_num_slots: 1
+  bc_queue: "desktop"
+  desktop: "mate"
 EOF
 
 # Setup for interactive desktops with PCluster -- path XXX HARDCODED
@@ -126,10 +129,15 @@ cat << EOF >> /etc/ood/clusters.d/sbgrid-ood-demo.yml
     vnc:
       script_wrapper: |
         module purge
-        export PATH="/opt/TurboVNC/bin:$PATH"
+        export PATH="/opt/TurboVNC/bin:/opt/VirtualGL/bin:$PATH"
         export WEBSOCKIFY_CMD="/usr/local/bin/websockify"
         %s
       websockify_cmd: "/usr/local/bin/websockify"
+EOF
+
+# Enable SSH to PCluster workers
+cat << EOF >> /etc/ood/config/apps/shell/env
+OOD_SSHHOST_ALLOWLIST="desktop-dy-desktop-cr-[0-9]"
 EOF
 
 # Setup OOD add user; will add local user for AD user if doesn't exist
@@ -280,4 +288,6 @@ echo "apache  ALL=(ALL) NOPASSWD: ALL" >> /etc/sudoers
 # Add the pcluster domain to the resolver domain search list
 nmcli con mod "System eth0" ipv4.dns-search "ec2.internal,sbgrid-ood-demo.pcluster"
 
+# Centos 8 broken journald flush
+# https://unix.stackexchange.com/questions/740162/systemd-journal-flush-service-failed-with-result-timeout-failed-to-start-flush
 reboot

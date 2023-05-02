@@ -373,6 +373,7 @@ Resources:
               - !Sub arn:${AWS::Partition}:s3:::${AWS::Region}-aws-parallelcluster/*
               - !Sub arn:${AWS::Partition}:s3:::dcv-license.${AWS::Region}/*
               - !Sub arn:${AWS::Partition}:s3:::cloudformation-waitcondition-${AWS::Region}/*
+              - !Sub arn:${AWS::Partition}:s3:::fsx-lustre-client-repo/*
 
   ALBSecurityGroup:
     Type: AWS::EC2::SecurityGroup
