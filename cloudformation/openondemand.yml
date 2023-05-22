@@ -64,7 +64,7 @@ Parameters:
     ConstraintDescription: must be a valid CIDR range of the form x.x.x.x/x.
   Branch:
     Description: Branch of the code to deploy. Only use this when testing changes to the solution
-    Default: main
+    Default: sbgrid
     Type: String
 Mappings:
   RegionMap:
@@ -738,6 +738,8 @@ Resources:
           Value: !Ref LoadBalancerLogBucket
         - Key: access_logs.s3.prefix
           Value: portal-alb
+        - Key: idle_timeout.timeout_seconds
+          Value: 3600
 
   OpenOnDemandLaunchTemplate:
     Type: AWS::EC2::LaunchTemplate
@@ -760,7 +762,7 @@ Resources:
             initial_setup:
               command: |
                 setenforce 0
-                sed -i "s/SELINUX=enforcing/SELINUX=permissive/" /etc/selinux/config
+                sed -i "s/SELINUX=enforcing/SELINUX=disabled/" /etc/selinux/config
                 dnf install https://dl.fedoraproject.org/pub/epel/epel-release-latest-8.noarch.rpm -y
                 dnf config-manager --set-enabled powertools -y
                 groupadd spack-users -g 4000

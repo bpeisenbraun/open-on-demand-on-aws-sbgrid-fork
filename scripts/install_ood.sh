@@ -5,8 +5,8 @@ dnf module enable ruby:3.0 -y
 dnf module enable nodejs:14 -y
 
 # Install Docker
-yum-config-manager --add-repo https://download.docker.com/linux/centos/docker-ce.repo
-yum install docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin -y -q
+#yum-config-manager --add-repo https://download.docker.com/linux/centos/docker-ce.repo
+#yum install docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin -y -q
 
 yum install -y -q https://yum.osc.edu/ondemand/3.0/ondemand-release-web-3.0-1.noarch.rpm
 yum install -y -q openssl lsof nmap-ncat novnc ondemand ondemand-dex ondemand-selinux krb5-workstation samba-common-tools amazon-efs-utils tcsh
@@ -145,7 +145,7 @@ form:
   - bc_account
   - bc_num_hours
   - node_type
-  - node_cpu
+  - desktop
 EOF
 
 cat << EOF >> /etc/ood/config/apps/bc_desktop/submit/sbgrid.yml.erb
