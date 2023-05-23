@@ -2,7 +2,7 @@
 # Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 # SPDX-License-Identifier: MIT-0
 
-yum -y install jq mysql amazon-efs-utils
+yum -y install jq mysql amazon-efs-utils eom
 
 # Get OOD Stack data
 OOD_STACK_NAME=$1
