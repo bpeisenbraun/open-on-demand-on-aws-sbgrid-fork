@@ -4,19 +4,18 @@
 dnf module enable ruby:3.0 -y
 dnf module enable nodejs:14 -y
 
-# Install Docker
-#yum-config-manager --add-repo https://download.docker.com/linux/centos/docker-ce.repo
-#yum install docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin -y -q
-
 yum install -y -q https://yum.osc.edu/ondemand/3.0/ondemand-release-web-3.0-1.noarch.rpm
 yum install -y -q openssl lsof nmap-ncat novnc ondemand ondemand-dex ondemand-selinux krb5-workstation samba-common-tools amazon-efs-utils tcsh
 
 AD_SECRET=$(aws secretsmanager --region "$AWS_REGION" get-secret-value --secret-id "$AD_SECRET_ID" --query SecretString --output text)
 AD_PASSWORD=$(aws secretsmanager --region "$AWS_REGION" get-secret-value --secret-id "$AD_PASSWORD" --query SecretString --output text)
-ALB_NAME=${!ALB_DNS_NAME,,} # Need to make it lower case as apache is case sensitive
+ALB_NAME=${ALB_DNS_NAME,,} # Need to make it lower case as apache is case sensitive
 
 export AD_SECRET AD_PASSWORD ALB_NAME
 
+###########################################################
+# SSSD configuration
+#
 cat << EOF >> /etc/sssd/sssd.conf
 [domain/$DOMAIN_NAME.$TOP_LEVEL_DOMAIN]
 cache_credentials = True
@@ -53,6 +52,9 @@ chown root:root /etc/sssd/sssd.conf
 chmod 600 /etc/sssd/sssd.conf
 systemctl restart sssd
 
+###########################################################
+# Modify base OOD portal configuration
+#
 sed -i "s/#servername: null/servername: $WEBSITE_DOMAIN/" /etc/ood/config/ood_portal.yml
 
 cat << EOF >> /etc/ood/config/ood_portal.yml
@@ -95,24 +97,17 @@ node_uri: '/node'
 rnode_uri: '/rnode'
 EOF
 
-# Tells PUN to look for home directories in EFS
+###########################################################
+# Tells PUN to look for home directories in EFS - XXX might be broken/unnecessary
+# 
 cat << EOF >> /etc/ood/config/nginx_stage.yml
 user_home_dir: '/shared/home/%{user}'
 EOF
 
-# Configure shell/VNC timeouts?
-cat << EOF >> /etc/httpd/conf.d/proxytimeouts.conf
-TimeOut 900
-ProxyTimeout 900
-KeepAlive On
-KeepAliveTimeout 900
-EOF
-
-# Set up directories for clusters and interactive desktops
-mkdir -p /etc/ood/config/clusters.d
-mkdir -p /etc/ood/config/apps/bc_desktop
-
+###########################################################
 # Setup for interactive desktops with PCluster -- path XXX HARDCODED
+#
+mkdir -p /etc/ood/config/apps/bc_desktop/submit
 cat << EOF >> /etc/ood/config/apps/bc_desktop/sbgrid-ood-demo.yml
 ---
 title: "GPU Desktop"
@@ -159,7 +154,10 @@ script:
     - "<%= '--constraint='+node_cpu %>"
 EOF
 
-# Setup for interactive desktops with PCluster -- path XXX HARDCODED
+###########################################################
+# Setup cluster submission options
+#
+mkdir -p /etc/ood/config/clusters.d
 cat << EOF >> /etc/ood/clusters.d/sbgrid-ood-demo.yml
   batch_connect:
     basic:
@@ -175,12 +173,34 @@ cat << EOF >> /etc/ood/clusters.d/sbgrid-ood-demo.yml
       websockify_cmd: "/usr/local/bin/websockify"
 EOF
 
+###########################################################
 # Enable SSH to PCluster workers
+# 
+mkdir -p /etc/ood/config/apps/shell
 cat << EOF >> /etc/ood/config/apps/shell/env
 OOD_SSHHOST_ALLOWLIST="desktop-dy-desktop-cr-[0-9]"
 EOF
 
+mkdir -p /etc/ood/config/apps/dashboard/initializers
+mkdir -p /etc/ood/config/apps/dashboard/widgets/cost_data
+
+###########################################################
+# Create SSH wrapper
+# 
+mkdir -p /etc/ood/bin
+cat << EOF >> /etc/ood/bin/ssh-wrapper
+#!/bin/bash
+
+args="-o StrictHostKeyChecking=no"
+
+exec /usr/bin/ssh "$args" "$@"
+EOF
+
+
+
+###########################################################
 # Setup OOD add user; will add local user for AD user if doesn't exist
+#
 touch /var/log/add_user.log
 chown apache /var/log/add_user.log
 touch /etc/ood/add_user.sh
@@ -194,10 +214,8 @@ if  id "\$1" &> /dev/null; then
   if [ ! -d "/shared/home/\$1" ] ; then
     echo "user \$1 home folder doesn't exist, create one " >> /var/log/add_user.log
     mkdir -p /shared/home/\$1 >> /var/log/add_user.log
-    mkdir -p /fsx/userdata/\$1 >> /var/log/add_user.log
-    ln -s /fsx/userdata/\$1 /shared/home/\$1/fsx
+    ln -s /shared/projects /shared/home/\$1/projects
     chown \$1:"Domain Users" /shared/home/\$1 >> /var/log/add_user.log
-    chown \$1:"Domain Users" /fsx/userdata/\$1 >> /var/log/add_user.log
     sudo su \$1 -c 'ssh-keygen -t rsa -f ~/.ssh/id_rsa -q -P ""'
     sudo su \$1 -c 'cat ~/.ssh/id_rsa.pub > ~/.ssh/authorized_keys'
     chmod 600 /shared/home/\$1/.ssh/*
@@ -205,9 +223,7 @@ if  id "\$1" &> /dev/null; then
 fi
 echo \$1
 EOF
-
 echo "user_map_cmd: '/etc/ood/add_user.sh'" >> /etc/ood/config/ood_portal.yml
-
 chmod +x /etc/ood/add_user.sh
 
 /opt/ood/ood-portal-generator/sbin/update_ood_portal
@@ -233,7 +249,7 @@ import sys
 import yaml
 
 '''
-An example of a `bin_overrides` replacing Slurm `sbatch` for use with Open OnDemand.
+An example of a _bin_overrides_ replacing Slurm _sbatch_ for use with Open OnDemand.
 Executes sbatch on the target cluster vs OOD node to get around painful experiences with sbatch + EFA.
 
 Requirements:
