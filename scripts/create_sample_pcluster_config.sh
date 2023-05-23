@@ -14,7 +14,6 @@ DOMAIN_2="local"
 
 OOD_STACK=$(aws cloudformation describe-stacks --stack-name $STACK_NAME --region $REGION )
 
-
 AD_SECRET_ARN=$(echo "$OOD_STACK" | jq -r '.Stacks[].Outputs[] | select(.OutputKey=="ADAdministratorSecretARN") | .OutputValue')
 SUBNET=$(echo "$OOD_STACK" | jq -r '.Stacks[].Outputs[] | select(.OutputKey=="PrivateSubnet1") | .OutputValue')
 HEAD_SG=$(echo "$OOD_STACK" | jq -r '.Stacks[].Outputs[] | select(.OutputKey=="HeadNodeSecurityGroup") | .OutputValue')
@@ -23,12 +22,11 @@ COMPUTE_SG=$(echo "$OOD_STACK" | jq -r '.Stacks[].Outputs[] | select(.OutputKey=
 COMPUTE_POLICY=$(echo "$OOD_STACK" | jq -r '.Stacks[].Outputs[] | select(.OutputKey=="ComputeNodeIAMPolicyArn") | .OutputValue')
 BUCKET_NAME=$(echo "$OOD_STACK" | jq -r '.Stacks[].Outputs[] | select(.OutputKey=="ClusterConfigBucket") | .OutputValue')
 LDAP_ENDPOINT=$(echo "$OOD_STACK" | jq -r '.Stacks[].Outputs[] | select(.OutputKey=="LDAPNLBEndPoint") | .OutputValue')
-EFS_SHARED_FS_ID=$(echo "$OOD_STACK" | jq -r '.Stacks[].Outputs[] | select(.OutputKey=="EFSMountId") | .OutputValue')
 EFS_PROGRAMS_FS_ID=$(aws efs describe-file-systems | jq -r '.FileSystems[] | select(.Tags[] | select(.Value == "SBGridProgramsInstallation")) | .FileSystemId')
-FSX_CLUSTER_FS_ID=$(aws fsx describe-file-systems | jq -r '.FileSystems[] | select(.Tags[] | select(.Value == "SBGridClusterFilesystem")) | .FileSystemId')
+FSX_CLUSTER_FS_ID=$(aws fsx describe-file-systems | jq -r '.FileSystems[] | select(.Tags[] | select(.Value == "SBGridPosixFS")) | .FileSystemId')
 
 
-cat << EOF > ../pcluster-config.yml
+cat << EOF > "../pcluster-config-$(date '+%Y%m%d-%H%M%S').yml"
 ---
 HeadNode:
   InstanceType: c5.large
@@ -128,18 +126,13 @@ DirectoryService:
     override_homedir: /shared/home/%u
 SharedStorage:
   - MountDir: /shared
-    Name: SharedUserHome
-    StorageType: Efs
-    EfsSettings:
-      FileSystemId: $EFS_SHARED_FS_ID
+    Name: SBGridPosixFS
+    StorageType: FsxLustre
+    FsxLustreSettings:
+      FileSystemId: $FSX_CLUSTER_FS_ID
   - MountDir: /programs
     Name: SBGridProgramsInstallation
     StorageType: Efs
     EfsSettings:
       FileSystemId: $EFS_PROGRAMS_FS_ID
-  - MountDir: /fsx
-    Name: SBGridClusterFilesystem
-    StorageType: FsxLustre
-    FsxLustreSettings:
-      FileSystemId: $FSX_CLUSTER_FS_ID
 EOF
