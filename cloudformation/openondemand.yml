@@ -767,9 +767,9 @@ Resources:
                 dnf config-manager --set-enabled powertools -y
                 groupadd spack-users -g 4000
             configure_cert:
-              command: !Sub /etc/ood-install/open-on-demand-on-aws-${Branch}/scripts/configure_instance_cert.sh
+              command: !Sub /etc/ood-install/open-on-demand-on-aws-sbgrid-fork-sbgrid/scripts/configure_instance_cert.sh
           sources:
-            /etc/ood-install: !Sub https://github.com/aws-samples/open-on-demand-on-aws/archive/refs/heads/${Branch}.zip
+            /etc/ood-install: !Sub https://github.com/bpeisenbraun/open-on-demand-on-aws-sbgrid-fork/archive/refs/heads/sbgrid.zip
           files: # Creates a file with appropriate variables for use in scripts. No secrets in here
             /etc/ood-install/set_variables.sh:
               content: !Sub |
@@ -800,46 +800,46 @@ Resources:
           commands:
             configure_cloudwatch:
               command: ./configure_cloudwatch_metrics.sh
-              cwd: !Sub /etc/ood-install/open-on-demand-on-aws-${Branch}/scripts
+              cwd: !Sub /etc/ood-install/open-on-demand-on-aws-sbgrid-fork-sbgrid/scripts
             mount_efs:
               command: |
                 . /etc/ood-install/set_variables.sh
                 ./mount_efs.sh
-              cwd: !Sub /etc/ood-install/open-on-demand-on-aws-${Branch}/scripts
+              cwd: !Sub /etc/ood-install/open-on-demand-on-aws-sbgrid-fork-sbgrid/scripts
             configure_mkhomedir:
-              command: !Sub /etc/ood-install/open-on-demand-on-aws-${Branch}/scripts/configure_mkhomedir.sh
+              command: !Sub /etc/ood-install/open-on-demand-on-aws-sbgrid-fork-sbgrid/scripts/configure_mkhomedir.sh
             upload_pcluster_configs:
               command: |
                 . /etc/ood-install/set_variables.sh
                 ./upload_pcluster_configs.sh
-              cwd: !Sub /etc/ood-install/open-on-demand-on-aws-${Branch}/scripts
+              cwd: !Sub /etc/ood-install/open-on-demand-on-aws-sbgrid-fork-sbgrid/scripts
         slurm:
           commands:
             install_munge:
               command: |
                 . /etc/ood-install/set_variables.sh
                 ./install_munge.sh
-              cwd: !Sub /etc/ood-install/open-on-demand-on-aws-${Branch}/scripts
+              cwd: !Sub /etc/ood-install/open-on-demand-on-aws-sbgrid-fork-sbgrid/scripts
             install_slurm:
               command: ./install_slurm.sh
-              cwd: !Sub /etc/ood-install/open-on-demand-on-aws-${Branch}/scripts
+              cwd: !Sub /etc/ood-install/open-on-demand-on-aws-sbgrid-fork-sbgrid/scripts
             configure_accounting:
               command: |
                 . /etc/ood-install/set_variables.sh
                 ./configure_slurm_accounting.sh
-              cwd: !Sub /etc/ood-install/open-on-demand-on-aws-${Branch}/scripts
+              cwd: !Sub /etc/ood-install/open-on-demand-on-aws-sbgrid-fork-sbgrid/scripts
         spack:
           commands:
             install_spack:
               command: ./install_spack.sh
-              cwd: !Sub /etc/ood-install/open-on-demand-on-aws-${Branch}/scripts
+              cwd: !Sub /etc/ood-install/open-on-demand-on-aws-sbgrid-fork-sbgrid/scripts
         ood:
           commands:
             ood_install:
               command: |
                 . /etc/ood-install/set_variables.sh
                 ./install_ood.sh
-              cwd: !Sub /etc/ood-install/open-on-demand-on-aws-${Branch}/scripts
+              cwd: !Sub /etc/ood-install/open-on-demand-on-aws-sbgrid-fork-sbgrid/scripts
     Properties:
       LaunchTemplateName: !Sub ${AWS::StackName}-launch-template-cfn-init
       LaunchTemplateData:
