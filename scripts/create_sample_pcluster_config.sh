@@ -7,12 +7,11 @@
 STACK_NAME="odd-demo-2"
 SSH_KEY='sbgrid-ood-demo'
 
-
 REGION="us-east-1"
 DOMAIN_1="sbgrid"
 DOMAIN_2="local"
 
-OOD_STACK=$(aws cloudformation describe-stacks --stack-name $STACK_NAME --region $REGION )
+OOD_STACK=$(aws cloudformation describe-stacks --stack-name "$STACK_NAME" --region "$REGION" )
 
 AD_SECRET_ARN=$(echo "$OOD_STACK" | jq -r '.Stacks[].Outputs[] | select(.OutputKey=="ADAdministratorSecretARN") | .OutputValue')
 SUBNET=$(echo "$OOD_STACK" | jq -r '.Stacks[].Outputs[] | select(.OutputKey=="PrivateSubnet1") | .OutputValue')
