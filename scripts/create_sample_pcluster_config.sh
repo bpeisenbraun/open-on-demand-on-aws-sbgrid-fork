@@ -122,9 +122,9 @@ Scheduling:
           MaxCount: 1
       Networking:
         SubnetIds:
-          - subnet-09c51e56e3acefab7
+          - $SUBNET
         AdditionalSecurityGroups:
-          - sg-05e267de32d8b7228
+          - $COMPUTE_SG
       ComputeSettings:
         LocalStorage:
           RootVolume:
@@ -133,9 +133,9 @@ Scheduling:
       CustomActions:
         OnNodeConfigured:
           Script: >-
-            s3://odd-demo-2-clusterconfigbucket-1fnsbr3lncrub/pcluster_cryosparc_master.sh
+            s3://$BUCKET_NAME/pcluster_cryosparc_master.sh
           Args:
-            - odd-demo-2
+            - $STACK_NAME
       Iam:
         AdditionalIamPolicies:
           - Policy: $COMPUTE_POLICY
