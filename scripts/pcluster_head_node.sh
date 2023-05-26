@@ -4,29 +4,25 @@
 
 # Install packages for domain
 yum -y -q install jq mysql amazon-efs-utils adcli
-REGION=$(curl http://169.254.169.254/latest/meta-data/placement/region)
+REGION=$(curl -s http://169.254.169.254/latest/meta-data/placement/region)
 INSTANCE_ID=$(curl -s http://169.254.169.254/latest/meta-data/instance-id)
 
-OOD_STACK_NAME=$1
+OOD_STACK_NAME="$1"
 
-OOD_STACK=$(aws cloudformation describe-stacks --stack-name $OOD_STACK_NAME --region $REGION )
+OOD_STACK=$(aws cloudformation describe-stacks --stack-name "$OOD_STACK_NAME" --region "$REGION" )
 
-STACK_NAME=$(aws ec2 describe-instances --instance-id=$INSTANCE_ID --region $REGION --query 'Reservations[].Instances[].Tags[?Key==`parallelcluster:cluster-name`].Value' --output text)
-OOD_SECRET_ID=$(echo $OOD_STACK | jq -r '.Stacks[].Outputs[] | select(.OutputKey=="SecretId") | .OutputValue')
-RDS_SECRET_ID=$(echo $OOD_STACK | jq -r '.Stacks[].Outputs[] | select(.OutputKey=="DBSecretId") | .OutputValue')
-EFS_ID=$(echo $OOD_STACK | jq -r '.Stacks[].Outputs[] | select(.OutputKey=="EFSMountId") | .OutputValue')
-S3_CONFIG_BUCKET=$(echo $OOD_STACK | jq -r '.Stacks[].Outputs[] | select(.OutputKey=="ClusterConfigBucket") | .OutputValue')
+# shellcheck disable=SC2016
+STACK_NAME=$(aws ec2 describe-instances --instance-id="$INSTANCE_ID" --region "$REGION" --query 'Reservations[].Instances[].Tags[?Key==`parallelcluster:cluster-name`].Value' --output text)
+RDS_SECRET_ID=$(echo "$OOD_STACK" | jq -r '.Stacks[].Outputs[] | select(.OutputKey=="DBSecretId") | .OutputValue')
+S3_CONFIG_BUCKET=$(echo "$OOD_STACK" | jq -r '.Stacks[].Outputs[] | select(.OutputKey=="ClusterConfigBucket") | .OutputValue')
 
-export RDS_SECRET=$(aws secretsmanager --region $REGION get-secret-value --secret-id $RDS_SECRET_ID --query SecretString --output text)
-export RDS_USER=$(echo $RDS_SECRET | jq -r ".username")
-export RDS_PASSWORD=$(echo $RDS_SECRET | jq -r ".password")
-export RDS_ENDPOINT=$(echo $RDS_SECRET | jq -r ".host")
-export RDS_PORT=$(echo $RDS_SECRET | jq -r ".port")
+RDS_SECRET=$(aws secretsmanager --region "$REGION" get-secret-value --secret-id "$RDS_SECRET_ID" --query SecretString --output text)
+RDS_USER=$(echo "$RDS_SECRET" | jq -r ".username")
+RDS_PASSWORD=$(echo "$RDS_SECRET" | jq -r ".password")
+RDS_ENDPOINT=$(echo "$RDS_SECRET" | jq -r ".host")
+RDS_PORT=$(echo "$RDS_SECRET" | jq -r ".port")
 
-# Add entry for fstab so mounts on restart
-#mkdir /shared
-#echo "$(curl -s http://169.254.169.254/latest/meta-data/placement/availability-zone).${EFS_ID}.efs.$REGION.amazonaws.com:/ /shared efs _netdev,noresvport,tls,iam 0 0" >> /etc/fstab
-#mount -a
+export RDS_SECRET RDS_USER RDS_PASSWORD RDS_ENDPOINT RDS_PORT
 
 # Add spack-users group
 groupadd spack-users -g 4000
@@ -42,7 +38,9 @@ sed -i 's/fallback_homedir = \/home\/%u/fallback_homedir = \/shared\/home\/%u/' 
 sleep 1
 systemctl restart sssd
 
-export SLURM_VERSION=$(. /etc/profile && sinfo --version | cut -d' ' -f 2)
+SLURM_VERSION=$(. /etc/profile && sinfo --version | cut -d' ' -f 2)
+export SLURM_VERSION
+
 sed -i "s/ClusterName=.*$/ClusterName=$STACK_NAME/" /opt/slurm/etc/slurm.conf
 
 cat << EOF > /opt/slurm/etc/slurmdbd.conf
@@ -88,13 +86,13 @@ chmod 600 /opt/slurm/etc/slurmdbd.conf
 chown slurm /opt/slurm/etc/slurmdbd.conf
 
 # Copy Common Munge Key
-aws s3 cp s3://$S3_CONFIG_BUCKET/munge.key /etc/munge/munge.key
+aws s3 cp "s3://$S3_CONFIG_BUCKET/munge.key" /etc/munge/munge.key
 chown munge: /etc/munge/munge.key
 chmod 400 /etc/munge/munge.key
 systemctl restart munge
 
 # Add cluster to slurm accounting
-sacctmgr add cluster $STACK_NAME
+sacctmgr add cluster "$STACK_NAME"
 systemctl restart slurmctld
 systemctl enable slurmctld
 systemctl restart slurmdbd
@@ -104,7 +102,7 @@ systemctl restart slurmctld # TODO: Investigate why this fixes clusters not regi
 # Build the OOD cluster config on the PCluster head node and then copy it
 # to S3 for use by OOD
 mkdir -p /tmp/ood-config/
-cat << EOF > /tmp/ood-config/$STACK_NAME.yml
+cat << EOF > "/tmp/ood-config/$STACK_NAME.yml"
 ---
 v2:
   metadata:
@@ -119,7 +117,7 @@ v2:
     bin_overrides:
       sbatch: "/etc/ood/config/bin_overrides.py"
 EOF
-aws s3 cp /tmp/ood-config/$STACK_NAME.yml s3://$S3_CONFIG_BUCKET/clusters/$STACK_NAME.yml
+aws s3 cp "/tmp/ood-config/$STACK_NAME.yml" "s3://$S3_CONFIG_BUCKET/clusters/$STACK_NAME.yml"
 
 ### this is for lustre cache eviction -- not working yet
 #echo "5 * * * * /programs/local/bin/cache-eviction-wrapper.sh -mountpath /fsx -mountpoint /shared -minage 30 -minsize 2000 -bucket bucket" | crontab 
