@@ -2,7 +2,7 @@
 # Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 # SPDX-License-Identifier: MIT-0
 
-yum -y install jq mysql amazon-efs-utils eom
+yum -y install jq mysql amazon-efs-utils
 
 # Get OOD Stack data
 OOD_STACK_NAME=$1
@@ -39,7 +39,7 @@ pip3 install --no-input jupyter
 # Install TurboVNC and VirtualGL for GL accelerated desktops
 curl -o /etc/yum.repos.d/VirtualGL.repo https://virtualgl.org/pmwiki/uploads/Downloads/VirtualGL.repo
 curl -o /etc/yum.repos.d/TurboVNC.repo https://turbovnc.org/pmwiki/uploads/Downloads/TurboVNC.repo
-yum install -y VirtualGL turbojpeg turbovnc nmap-ncat
+yum install -y VirtualGL turbojpeg turbovnc nmap-ncat eom
 
 # Update system path
 cat >> /etc/bashrc << 'EOF'

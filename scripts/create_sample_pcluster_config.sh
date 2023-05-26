@@ -112,6 +112,41 @@ Scheduling:
           - Policy: $COMPUTE_POLICY
           - Policy: arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore
           - Policy: arn:aws:iam::aws:policy/AmazonS3ReadOnlyAccess
+    - Name: cryosparc-master
+      AllocationStrategy: lowest-price
+      ComputeResources:
+        - Name: cryosparc-master-cr
+          Instances:
+            - InstanceType: r5d.xlarge
+          MinCount: 0
+          MaxCount: 1
+      Networking:
+        SubnetIds:
+          - subnet-09c51e56e3acefab7
+        AdditionalSecurityGroups:
+          - sg-05e267de32d8b7228
+      ComputeSettings:
+        LocalStorage:
+          RootVolume:
+            VolumeType: gp3
+            Size: 50
+      CustomActions:
+        OnNodeConfigured:
+          Script: >-
+            s3://odd-demo-2-clusterconfigbucket-1fnsbr3lncrub/pcluster_cryosparc_master.sh
+          Args:
+            - odd-demo-2
+      Iam:
+        AdditionalIamPolicies:
+          - Policy: $COMPUTE_POLICY
+          - Policy: arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore
+          - Policy: arn:aws:iam::aws:policy/AmazonS3ReadOnlyAccess
+          # NOTE/TODO: this policy gives access to all ECR repositories in the
+          # account. This should be replaced by a policy that gives access to
+          # only the cryosparc repository (and cross-account access to the
+          # repository in the other account if we use a centralized ECR
+          # repository)
+          - Policy: arn:aws:iam::aws:policy/AmazonEC2ContainerRegistryReadOnly
   SlurmSettings:
     QueueUpdateStrategy: DRAIN
 Region: $REGION
