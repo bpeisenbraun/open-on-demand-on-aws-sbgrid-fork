@@ -22,7 +22,7 @@ RDS_PASSWORD=$(echo "$RDS_SECRET" | jq -r ".password")
 RDS_ENDPOINT=$(echo "$RDS_SECRET" | jq -r ".host")
 RDS_PORT=$(echo "$RDS_SECRET" | jq -r ".port")
 
-export RDS_SECRET RDS_USER RDS_PASSWORD RDS_ENDPOINT RDS_PORT
+export RDS_USER RDS_PASSWORD RDS_ENDPOINT RDS_PORT
 
 # Add spack-users group
 groupadd spack-users -g 4000
